@@ -1,0 +1,860 @@
+<!DOCTYPE HTML>
+<html xmlns:v-bind="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>チャットルーム</title>
+    <script src="./js/jquery.min.js"></script>
+    <script src="./js/canvi.js"></script>
+    <script src="./js/layui.all.js"></script>
+    <link rel="stylesheet" type="text/css" href="./css/demo.css" />
+    <link rel="stylesheet" type="text/css" href="./css/normalize.css" />
+    <link rel="stylesheet" type="text/css" href="./css/canvi.css" />
+    <link rel="stylesheet" type="text/css" href="./css/login.css" />
+    <link rel="stylesheet" type="text/css" href="./css/layui.css" />
+    <!--the css for jquery.mCustomScrollbar-->
+    <link rel="stylesheet" href="./css/jquery.mCustomScrollbar.min.css"/>
+    <!--the css for this plugin-->
+    <link rel="stylesheet" href="./css/jquery.emoji.css"/>
+    <!--(Optional) the js for jquery.mCustomScrollbar's addon-->
+    <script src="./js/jquery.mousewheel-3.0.6.min.js"></script>
+    <!--the js for jquery.mCustomScrollbar-->
+    <script src="./js/jquery.mCustomScrollbar.min.js"></script>
+    <!--the js for this plugin-->
+    <script src="./js/jquery.emoji.js"></script>
+    <!--vue-->
+    <script src="./js/vue.min.js"></script>
+    <!--引込変数-->
+    <script src="./js/common.variate.js"></script>
+    <link rel="stylesheet" type="text/css" href="./css/csshake.min.css">
+
+</head>
+
+<body onload="checkNotification()" style="background-color: rgb(230, 230, 230)">
+    <aside id="aside" class="myCanvasNav canvi-navbar" data-position="left" data-push-content="false" style="width: 100vw;" inert="" aria-hidden="true">
+        <div id="canvi" class="canvi-user-info" style="padding-top: 20px;padding-bottom: 20px;">
+            <div class="canvi-user-info__data">
+                <span id="activeRoom" class="canvi-user-info__title">ルームナンバー:</span>
+                <a id="activeUser" class="canvi-user-info__meta">毎日楽しくおしゃべり😘</a><br>
+                <a id="activePwd" class="canvi-user-info__meta"></a>
+            </div>
+            <div v-bind:title="msgSwitchTips" class="canvi-user-info__close" onclick="silence()">
+                <img id="mute" src="./icon/unmute.png" style="width: 25px;">
+            </div>
+        </div>
+        <ul id="cebian" class="canvi-navigation">
+        </ul>
+    </aside>
+
+    <main class="js-canvi-content canvi-content"></main>
+
+    <div>
+        <button id="btn" style="display: none" class="js-canvi-open-button--left btn">オンライン人数の表示</button>
+        <div style="display: none;">
+            <div>
+                <span>ニックネーム：</span>
+                <input id="nick" type="text">
+            </div>
+            <div>
+                <span>へや：</span>
+                <input id="room" type="text">
+            </div>
+            <div>
+                <span>ユーザID：</span>
+                <input id="userId" type="text">
+            </div>
+        </div>
+
+        <div id="message" style="display: none"></div>
+
+        <div id="footer" class="footer">
+            <div id="toolbar" style="padding: 5px;">
+                <img id="emoji" v-bind:title="emojiTips" src="icon/emoji.png" style="width: 26px;margin-left: 10px">
+                <img id="sendImg" v-bind:title="pictureTips" onclick="moniSendImg()" src="icon/picture.png" style="width: 23px;margin-left: 10px">
+                <img id="shakeMsg" v-bind:title="shakeTips" class="shake-constant shake-constant--hover" onclick="beginShake()" src="icon/shakeFalse.png" style="width: 22px;margin-left: 10px">
+                <img id="clear" v-bind:title="clearTips" onclick="emptyScreen()"src="icon/clear.png" style="width: 23px;margin-left: 10px">
+                <img id="send" v-bind:title="sendTips" onclick="send()" src="icon/send.png" style="width: 24px;position: absolute;right: 10px">
+            </div>
+            <div id="text" contenteditable="true"></div>
+        </div>
+
+        <form id="imageUp" style="display: none">
+            <a href='javascript:void(0);' class="blueButton">画像を送る</a>
+            <input type="file" class="myFileUpload" name="file" id="image" onchange="sendImg(this)"/>
+        </form>
+    </div>
+
+    <div class="login" id="window">
+        <div class="login-title">部屋に入る</div>
+        <div class="login-input-content">
+            <div class="login-input">
+                <label>ニックネーム：</label>
+                <input type="text" placeholder="ニックネームを入力してください"   id="nickname" class="list-input"/>
+            </div>
+            <div class="login-input">
+                <label>へや：</label>
+                <input type="text" placeholder="部屋に入力してください" onfocus="allRoom(this)"  id="roomname" class="list-input" list="rooms"/>
+                <datalist id="rooms"></datalist>
+            </div>
+            <div class="login-input" style="height: 0px">
+                <label>パスワード：</label>
+                <input type="password" placeholder="パスワードを空白にすることができます" id="password" class="list-input" list="rooms"/>
+            </div>
+        </div>
+        <div class="login-button" onclick="editNick()"><a style="text-decoration:none;color:#ffffff;" href="javascript:void(0);" id="login-button-submit">入る</a></div>
+    </div>
+
+</body>
+
+<script type="text/javascript">
+
+    window.onfocus = function() {
+        focus = false;
+    };
+    window.onblur = function() {
+        focus = true;
+    };
+
+    // for IE
+    document.onfocusin = function() {
+        focus = false;
+    };
+    document.onfocusout = function() {
+        focus = true;
+    };
+
+    //現在のブラウザがWebSocketをサポートしているかどうかを判断する
+    if('WebSocket' in window){
+        websocket = new WebSocket(wsHost);
+    }else{
+        layer.msg(unSupportWsMsg,{anim: 6})
+    }
+
+    //接続エラーのコールバック方法
+    websocket.onerror = function(){
+        layer.msg(onerrorMsg,{anim: 6});
+    };
+
+    //接続が正常に確立されたコールバック方法
+    websocket.onopen = function(event){
+        self.setInterval("ping()",55000);
+    }
+
+    // ボタンの上にマウスを置いたときにTipsを遅らせる
+    function delayTips(tips,obj,style,time){
+        timer = setTimeout(messagebox,time==null?700:time,tips,obj,style)
+    }
+
+    // Tips遅延タイマーの停止
+    function stopTimer(){
+        if(timer != null){
+            clearTimeout(timer);
+            layer.closeAll('tips');
+        }
+    }
+
+    // Tips
+    function messagebox(tips,obj,style){
+        layer.tips(tips,obj,style);
+    }
+
+    //メッセージを受信したコールバック方法
+    websocket.onmessage = function(event){
+        var data = JSON.parse(event.data)
+        var msg = data.msg;
+        var nick = data.sendUser;
+        var shakeStatus = data.shake;
+        if (focus && mute%2==0) {
+            playSound();
+            notifyMe(data);
+        }
+        switch(data.type){
+            case 'init':
+                getOnlion(document.getElementById('room').value);
+                layer.msg(msg);
+                break;
+            case 'msg':
+                setMessageInnerHTML(nick,text2Emoji2(msg),shakeStatus);
+                break;
+            case 'img':
+                setImgInnerHTML(nick,msg);
+                break;
+            case 'bing':
+                document.getElementById('userId').value = data.id;
+                $('body').css("background-image","url("+msg+")");
+                break;
+            default:
+                break;
+        }
+    }
+
+    //接続クローズのコールバック方法
+    websocket.onclose = function(){
+        layer.alert(oncloseMsg, {icon: 2});
+        $("#footer").animate({bottom:'-200px'},400);
+
+    }
+
+    //ウィンドウを閉じるイベントを傍受し、ウィンドウが閉じると、websocket接続をアクティブに閉じ、接続が切断されていないうちにウィンドウを閉じることを防止し、server端に異常がスローされます。
+    window.onbeforeunload = function(){
+        websocket.close();
+    }
+
+    // 画面をクリア
+    function emptyScreen(){
+        layer.msg('画面を空にするか？', {
+            anim: 6,
+            time: 0 //自動的に閉じない
+            ,btn: ['OK', 'キャンセル']
+            ,yes: function(index){
+                layer.close(index);
+                $("#message").empty();
+            }
+        });
+    }
+
+    // ジッタを停止するメッセージ
+    function stopShake(obj) {
+        var array = $(obj).attr("class").split(" ")
+        $(obj).removeClass(array[3]);
+    }
+
+    // 原図の表示
+    function originalImage(obj) {
+        layer.photos({
+            photos: obj
+            ,anim: 5 //0-6の選択、ポップアップピクチャアニメーションの種類を指定し、デフォルトのランダム（3.0以前のバージョンはshiftパラメータを使用）
+        });
+    }
+
+    //Webページにメッセージを表示する
+    function setMessageInnerHTML(nick,msg,shake){
+        var a = '<div class="botui-message-left"><div ondblclick="stopShake(this)" class="botui-message-content shake-constant shake-constant--hover';
+        if (shake != null || shake != ""){
+            a = a + ' '+shake+'">';
+        }else {
+            a = a + '">';
+        }
+        $("#message").append("<div class='sendUser'><b>"+nick+"</b></div>"+a+msg+b);
+        scrollToEnd();
+        $(".botui-message-content").animate({'margin-left':'0px'},200);
+    }
+
+    //自分が送ったメッセージをWebページに表示する
+    function setMessageInnerHTML2(nick,msg,shake){
+        var c = '<div class="botui-message-right"><div ondblclick="stopShake(this)" class="botui-message-content2 shake-constant shake-constant--hover';
+        if (shake != null || shake != ""){
+            c = c + ' '+shake+'">';
+        }else {
+            c = c + '">';
+        }
+        $("#message").append("<div class='sendUser' style='text-align: right;'><b>"+nick+"</b></div>"+c+msg+b);
+        scrollToEnd();
+        $(".botui-message-content2").animate({'margin-right':'0px'},200);
+    }
+
+    //Webページに画像を表示する
+    function setImgInnerHTML(nick,msg){
+        $("#message").append("<div class='sendUser'><b>"+nick+"</b></div>"+aa+"<img style=\"max-width: -moz-available;\" src='"+msg+"'"+b);
+        scrollToEnd();
+        $(".botui-message-content-img").animate({'margin-left':'0px'},200);
+    }
+
+    //自分が送った画像をWebページに表示する
+    function setImgInnerHTML2(nick,msg){
+        $("#message").append("<div class='sendUser' style='text-align: right;'><b>"+nick+"</b></div>"+cc+"<img style=\"max-width: -moz-available;\" src='"+msg+"'"+b);
+        scrollToEnd();
+        $(".botui-message-content2-img").animate({'margin-right':'0px'},200);
+    }
+
+    function moniSendImg() {
+        document.getElementById("image").click();
+    }
+    
+    //接続を閉じる
+    function closeWebSocket(){
+        websocket.close();
+    }
+    
+    //スイッチングジッタメッセージ
+    function beginShake() {
+        if (shakeNum == 8){
+            $('#shakeMsg').attr("src","./icon/shakeFalse.png");
+            $("#shakeMsg").removeClass(shakeList[shakeNum]);
+            layer.msg("ジッタメッセージが閉じられました");
+            shakeNum=0;
+        }else {
+            $("#shakeMsg").removeClass(shakeList[shakeNum]);
+            shakeNum+=1;
+            $('#shakeMsg').attr("src","./icon/shakeTrue.png");
+            $("#shakeMsg").addClass(shakeList[shakeNum]);
+            layer.msg(shakeChinese[shakeNum]);
+        }
+    }
+
+    //メッセージを送信
+    function send(){
+        var msgBak = document.getElementById('text').innerHTML;
+        var nick = document.getElementById('nick').value;
+        // 変換emoji
+        $($("#text").children(".emoji_icon")).each(function () {
+            $(this).prop('outerHTML', textHead+$(this).attr("src").split(emojiPath)[1]+textFoot);
+        });
+        var msg = document.getElementById('text').innerHTML;
+        if (msg != null && msg != ""){
+            msg = msg.replace(/"/g,"'");
+            var map = new Map();
+            map.set("type","msg");
+            map.set("msg",msg);
+            var shiels = new Array();
+            shieldMap.forEach(function (value) {
+                shiels.push(value);
+            })
+            map.set("shiels",shiels);
+            map.set("shake",shakeList[shakeNum]);
+            var map2json=Map2Json(map);
+            if (map2json.length < 8000){
+                websocket.send(map2json);
+                document.getElementById('text').innerHTML = null;
+                setMessageInnerHTML2(nick,text2Emoji2(msg),shakeList[shakeNum]);
+            }else {
+                $("#text").html(msgBak);
+                layer.msg("テキストが長すぎるから、少し書きましょう。😭",{anim: 6});
+            }
+        }else {
+            layer.msg("空のメッセージを送るとはどういう意味ですか。🤔",{anim: 6});
+        }
+    }
+
+    //サービス側がnginxを転送すると、'proxy _read_timeout'の設定は短すぎて自動的に切断され、デフォルトは1分間なので、チャットしない状態で切断されないようにハートビート接続を送信します
+    function ping() {
+        var map = new Map();
+        map.set("type","ping");
+        var map2json=Map2Json(map);
+        websocket.send(map2json);
+    }
+
+    // テキストをemojiピクチャに変換
+    function text2Emoji2(emojiMsg) {
+        return emojiMsg.replace(new RegExp(textHead,"g"),emojiHead).replace(new RegExp(textFoot,"g"),emojiFoot);
+    }
+
+    //ニックネームと部屋番号を送信
+    function sendnick(nick,room,pwd){
+        var map = new Map();
+        map.set("type","init");
+        map.set("nick",nick);
+        map.set("room",room);
+        map.set("pwd",pwd);
+        var message = Map2Json(map);
+        websocket.send(message);
+        document.getElementById('text').innerHTML = null;
+        document.getElementById('activeRoom').innerText = 'へや：'+room;
+        document.getElementById('activeUser').innerText = 'ニックネーム：'+nick;
+        if (pwd != null && pwd != ""){
+            document.getElementById('activePwd').innerText = 'パスワード：'+pwd;
+        }else {
+            $("#activePwd").css('display','none');
+        }
+        $('#btn').trigger("click");
+        getOnlion(document.getElementById('room').value);
+        $('body').css("background-image","none");
+        $("#window").animate({top:'-100%'},500);
+        $("#footer").animate({bottom:'0px'},400);
+        $("#message").show();
+        layer.alert(firstTips);
+        //この方法は近いアニメーションカートンを引き起こすので、しばらくおとなしくさせておきます
+        setTimeout(function(){ loadEmoji(); }, 500);
+    }
+
+    // 表情をロードするには、この方法には時間がかかるため、肉眼で見えるカートンになる可能性があります
+    function loadEmoji() {
+        $("#text").emoji({
+            button: "#emoji",
+            showTab: true,
+            animation: 'slide',
+            icons: [{
+                name: "QQ表情",
+                path: "dist/img/qq/",
+                maxNum: 154,
+                file: ".gif"
+
+            },{
+                name: "貼り付けられた表情",
+                path: "dist/img/tieba/",
+                maxNum: 50,
+                file: ".jpg"
+            },{
+                name: "dog",
+                path: "dist/img/dog/",
+                maxNum: 37,
+                file: ".png"
+            },{
+                name: "悪い",
+                path: "dist/img/huai/",
+                maxNum: 189,
+                file: ".png"
+            },{
+                name: "悪いGIF",
+                path: "dist/img/huaiGif/",
+                maxNum: 26,
+                file: ".gif"
+            },{
+                name: "マイクロブログ",
+                path: "dist/img/weibo/",
+                maxNum: 93,
+                file: ".png"
+            },{
+                name: "卑猥な萌え",
+                path: "dist/img/xiaoren/",
+                maxNum: 186,
+                file: ".gif"
+            }]
+        });
+    }
+
+    //リスニングキー
+    $(document).keydown(function(e) {
+        // Enterキーによるメッセージの送信
+        if (e.keyCode == 13) {
+            var topValue = $("#window").css('top');
+            var topPx = topValue.substring(0,topValue.length-2);
+            if (topPx > 0){
+                editNick();
+            }else {
+                send();
+                return false;
+            }
+        }else if(e.keyCode == 27){ //リスニングキー
+            $('#shakeMsg').attr("src","./icon/shakeFalse.png");
+            $("#shakeMsg").removeClass(shakeList[shakeNum]);
+            shakeNum=0;
+            layer.msg("ジッタメッセージが閉じられました");
+        }
+    });
+
+    //メッセージを送信したら自動的に下へスクロール
+    function scrollToEnd(){
+        var h = $("html,body").height()-$(window).height();
+        $("html,body").animate({scrollTop:h},200);
+    }
+
+    //部屋番号とニックネームを設定して送信し、'#btn'のクリックイベントをシミュレーションしてサイドバーをポップアップします
+    function editNick() {
+        var nickname = $("#nickname").val();
+        var roomname = $("#roomname").val();
+        var password = $("#password").val();
+        document.getElementById('nick').value = nickname;
+        document.getElementById('room').value = roomname;
+        if (nickname == "" || roomname == ""){
+            layer.msg("部屋番号とニックネームは空白にできません！",{anim: 6});
+            return;
+        }
+        $.ajax({
+            type: "POST",
+            url: "/ws/judgeNick",
+            data: {room:roomname,nick:nickname,pwd:password},
+            dataType: "json",
+            success: function(data){
+                //部屋は存在するがニックネームは重複する
+                if (data.code == 1){
+                    layer.msg(data.msg,{anim: 6});
+                    document.getElementById('nickname').value = '';
+                    return;
+                }else if (data.code == 2){ //部屋は存在するがパスワードが間違っている
+                    if (password == null || password == ""){
+                        if ($(".login").css("height") == "300px"){
+                            layer.msg("パスワードを入力してください",{anim: 6});
+                        }else {
+                            ejectPwd("この部屋にはパスワードが必要です");
+                        }
+                    }else {
+                        layer.msg(data.msg,{anim: 6});
+                        document.getElementById('password').value = "";
+                    }
+                    return;
+                }else if (data.code == 0){
+                    //部屋が存在しないことを示す
+                    if (password == null || password == ""){
+                        layer.confirm('この部屋にパスワードを追加する必要がありますか。？', {
+                            btn: ['必要','いいえ'] //ボタンを使用します。
+                        }, function(){
+                            ejectPwd("パスワードを入力してください");
+                            layer.closeAll('dialog');
+                        }, function(){
+                            sendnick(nickname,roomname,password);
+                        });
+                    }else {
+                        sendnick(nickname,roomname,password);
+                    }
+                }else {
+                    sendnick(nickname,roomname,password);
+                }
+            }
+        });
+    }
+
+
+    //現在の部屋のすべてのユーザーを取得
+    function getOnlion(room) {
+        $.ajax({
+            type: "POST",
+            url: "/ws/online",
+            data: {room:room},
+            dataType: "json",
+            success: function(data){
+                if (data.onlineNum > 0){
+                    var onlineUsera = data.onlineUsera;
+                    $("#cebian").html("");
+                    onlineUsera.forEach(function (user) {
+                        var color = "#00ce46";
+                        if (shieldMap.has("user-"+user.id)){
+                            color = "#FF3A43"
+                        }
+                        if (user.id != $("#userId").val()){
+                            var html = '<li>\n' +
+                                '                <a class="canvi-navigation__item">\n' +
+                                '                    <span title="自分のメッセージを受信しないようにするには、この人をブロックするをクリックしてください" id="user-'+user.id+'" class="canvi-navigation__icon-wrapper" onclick="shield(this)" style="background: '+color+';">\n' +
+                                '                        <span class="canvi-navigation__icon icon-iconmonstr-code-13"></span>\n' +
+                                '                    </span>\n' +
+                                '                    <span class="canvi-navigation__text">'+user.nick+'</span>\n' +
+                                '                </a>\n' +
+                                '            </li>';
+                            $("#cebian").append(html);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    // メンバーをブロックして私のメッセージを受信させない
+    function shield(obj) {
+        var userId = obj.id.substring(5)
+        if (userId != $("#userId").val()){
+            if (shieldMap.has(obj.id)){
+                shieldMap.delete(obj.id);
+                layer.msg('ユーザーはメッセージを再受信します😁');
+            }else {
+                shieldMap.set(obj.id,userId);
+                layer.msg('ユーザーはメッセージを受信しません😉');
+            }
+            getOnlion(document.getElementById('room').value);
+        }else {
+            layer.msg('これはあなた自身ですよ、注文しても無駄です😂');
+        }
+    }
+
+    //プロンプト音を再生
+    function playSound(){
+        var borswer = window.navigator.userAgent.toLowerCase();
+        if ( borswer.indexOf( "ie" ) >= 0 )
+        {
+            //IEカーネルブラウザ
+            var strEmbed = '<embed name="embedPlay" src="./audio/ding.mp3" autostart="true" hidden="true" loop="false"></embed>';
+            if ( $( "body" ).find( "embed" ).length <= 0 )
+                $( "body" ).append( strEmbed );
+            var embed = document.embedPlay;
+
+            //ブラウザがaudionをサポートしていない場合は、embedを使用して再生します
+            embed.volume = 100;
+            //embed.play();
+        } else
+        {
+            //IE以外のカーネルブラウザ
+            var strAudio = "<audio id='audioPlay' src='./audio/ding.mp3' hidden='true'>";
+            if ( $( "body" ).find( "audio" ).length <= 0 )
+                $( "body" ).append( strAudio );
+            var audio = document.getElementById( "audioPlay" );
+
+            //ブラウザはaudionをサポートしています
+            audio.play();
+        }
+    }
+
+
+    var t = new Canvi({
+        content: ".js-canvi-content",
+        isDebug: !1,
+        navbar: ".myCanvasNav",
+        openButton: ".js-canvi-open-button--left",
+        position: "left",
+        pushContent: !1,
+        speed: "0.2s",
+        width: "100vw",
+        responsiveWidths: [ {
+            breakpoint: "600px",
+            width: "21%"
+        }, {
+            breakpoint: "1280px",
+            width: "21%"
+        }, {
+            breakpoint: "1600px",
+            width: "21%"
+        } ]
+    })
+
+
+    function sendImg(obj) {
+        var file = document.getElementById("imageUp");
+        var image = document.getElementById("image");
+        if (!(image.value == null || image.value == "")){
+            var img = getObjectURL(obj.files[0]);
+            var nick = document.getElementById('nick').value;
+            setImgInnerHTML2(nick,img);
+            var form = new FormData(file);
+            loadImage(image,1024);
+            upImgByLocalApi(form);
+            // form.append("type","multipart");
+            // loadImage(image,10240);
+            // setTimeout(function(){ upImgByFigureBed(form); }, 300);
+            image.value = null;
+        }
+    }
+
+    function getObjectURL(file) {
+        var url = null;
+        if (window.createObjcectURL != undefined) {
+            url = window.createOjcectURL(file);
+        } else if (window.URL != undefined) {
+            url = window.URL.createObjectURL(file);
+        } else if (window.webkitURL != undefined) {
+            url = window.webkitURL.createObjectURL(file);
+        }
+        return url;
+    }
+
+    //図床を使用した画像のアップロード
+    function upImgByFigureBed(form) {
+        // var url;
+        $.ajax({
+            url: "http://api.yum6.cn/sinaimg.php",
+            type: "POST",
+            data: form,
+            async:false,
+            processData:false,
+            contentType:false,
+            success: function (data) {
+                var url =  data.url.replace("thumb150","large");
+                if (url != null && url != ""){
+                    var map = new Map();
+                    map.set("type","img");
+                    map.set("msg",url);
+                    var shiels = new Array();
+                    shieldMap.forEach(function (value) {
+                        shiels.push(value);
+                    })
+                    map.set("shiels",shiels);
+                    var map2json=Map2Json(map);
+                    websocket.send(map2json);
+                }
+            },
+            error: function (data) {
+                layer.msg("失败",{anim: 6});
+            }
+        });
+    }
+
+    //システム自体のインタフェースを使用した画像のアップロード
+    function upImgByLocalApi(form) {
+        $.ajax({
+            url: "/ws/fileUpload",
+            type: "POST",
+            data: form,
+            async:false,
+            processData:false,
+            contentType:false,
+            success: function (data) {
+                var url = data.url;
+                if (url != null && url != ""){
+                    var map = new Map();
+                    map.set("type","img");
+                    map.set("msg",url);
+                    var shiels = new Array();
+                    shieldMap.forEach(function (value) {
+                        shiels.push(value);
+                    })
+                    map.set("shiels",shiels);
+                    var map2json=Map2Json(map);
+                    websocket.send(map2json);
+                }
+            },
+            error: function (data) {
+                layer.msg("失败",{anim: 6});
+            }
+        });
+    }
+
+    function Map2Json(map) {
+        var str = "{";
+        map.forEach(function (value, key) {
+            str += '"'+key+'"'+':'+ '"'+value+'",';
+        })
+        str = str.substring(0,str.length-1)
+        str +="}";
+        return str;
+    }
+
+    //画像の種類とサイズを検証する
+    function loadImage(img,size) {
+        var filePath = img.value;
+        var fileExt = filePath.substring(filePath.lastIndexOf("."))
+            .toLowerCase();
+
+        if (!checkFileExt(fileExt)) {
+            layer.msg("アップロードしたファイルは画像ではありません。再アップロードしてください！",{anim: 6});
+            img.value = "";
+            return;
+        }
+        if (img.files && img.files[0]) {
+            if ((img.files[0].size / 1024).toFixed(0) > size){
+                layer.msg("画像は1 Mを超えてはいけませんので、もう一度選択してください",{anim: 6});
+                img.value = "";
+                return;
+            }
+        } else {
+            img.select();
+            var url = document.selection.createRange().text;
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+            } catch (e) {
+                layer.msg('ie 8以下を使用している場合はセキュリティレベルを下げてください！',{anim: 6});
+            }
+            layer.msg("ファイルサイズは：" + (fso.GetFile(url).size / 1024).toFixed(0) + "kb",{anim: 6});
+        }
+    }
+
+    function checkFileExt(ext) {
+        if (!ext.match(/.jpg|.jpeg|.gif|.png|.bmp/i)) {
+            return false;
+        }
+        return true;
+    }
+
+    function notifyMe(data) {
+        var notification = null;
+        var msg = data.msg;
+        var nick = data.sendUser;
+        var type = data.type;
+        switch(type){
+            case 'init':
+                notification = new Notification(nick,{
+                    body: msg,
+                    icon: 'http://'+host+'/icon/enter.png',
+                });
+                break;
+            case 'msg':
+                notification = new Notification(nick,{
+                    body: msg,
+                    icon: 'http://'+host+'/icon/mail.png',
+                });
+                break;
+            case 'img':
+                notification = new Notification(nick,{
+                    icon: msg,
+                    // body: '画像を受け取りました',
+                });
+                break;
+            default:
+                break;
+        }
+
+        // ブラウザがサポートされているかどうかを確認してから
+        if (!("Notification" in window)) {
+            layer.msg("ブラウザではデスクトップ通知はサポートされていません",{anim: 6});
+        }
+
+        // ユーザーが通知を受け入れることに同意するかどうかをチェック
+        else if (Notification.permission === "granted") {
+            // If it's okay let's create a notification
+            var notification1 = notification;
+            notification.onclick = function() {
+                notification.close();
+                window.resizeBy(-100,-100)
+            };
+        }
+
+        // そうでなければユーザーに権限を取得する必要があります
+        else if (Notification.permission !== 'denied') {
+            Notification.requestPermission(function (permission) {
+                // ユーザーが同意すれば、通知を送信することができます
+                if (permission === "granted") {
+                    var notification1 = notification;
+                    notification.onclick = function() {
+                        notification.close();
+                        window.resizeBy(-100,-100)
+                    };
+                }
+            });
+        }
+        // 最後に、ここまで実行すると、ユーザーは関連通知の許可を拒否しました
+        // 尊重のために、私たちは彼らを邪魔するべきではありません
+    }
+
+    function checkNotification() {
+        $(".login").animate({height:'250px'},200);
+        $(".login-input-content").animate({'margin-top':'0px'},200);
+        if (!("Notification" in window)) {
+            layer.msg("ブラウザではデスクトップ通知はサポートされていません",{anim: 6});
+        }else{
+            Notification.requestPermission();
+        }
+    }
+    
+    function allRoom(obj){
+        $.ajax({
+            type: "POST",
+            url: "/ws/allRoom",
+            dataType: "json",
+            success: function(data){
+                var rooms = data.rooms;
+                $("#rooms").empty();
+                if (rooms.length > 0){
+                    layer.tips("既存の部屋を選択するには、ダブルクリックまたはポイント",obj);
+                }
+                rooms.forEach(function (room) {
+                    var html = '<option value="'+room+'">';
+                    $("#rooms").append(html);
+                });
+
+            }
+        });
+    }
+    
+    function silence() {
+        mute++;
+        if (mute%2 == 0){
+            $('#mute').attr("src","./icon/unmute.png");
+            layer.msg("メッセージ通知がオープンしました");
+        }else {
+            $('#mute').attr("src","./icon/mute.png");
+            layer.msg("メッセージ通知が終了しました");
+        }
+    }
+
+    // パスワードボックスのポップアップ
+    function ejectPwd(message) {
+        $(".login-input").animate({height:'35px'},300);
+        $(".login").animate({height:'300px'},300);
+        $("#password").attr('placeholder',message);
+    }
+
+    new Vue({
+            el: '#toolbar',
+            data: {
+                emojiTips : emojiTips,
+                pictureTips : pictureTips,
+                shakeTips : shakeTips,
+                clearTips : clearTips,
+                sendTips : sendTips,
+            }
+        })
+
+    new Vue({
+        el: '#canvi',
+        data: {
+            msgSwitchTips : msgSwitchTips
+        }
+    })
+
+</script>
+</html>
